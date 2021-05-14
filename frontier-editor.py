@@ -1,8 +1,9 @@
 import sys
 import re
 
-from PyQt6 import QtWidgets, uic
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtCore import *
+from PyQt6 import QtWidgets, QtGui, uic
+from PyQt6.QtWidgets import QFileDialog, QCompleter
 
 
 
@@ -30,7 +31,7 @@ class Parser():
 
         constants_text = self.strip_comments(constants_text)
 
-        define_regex = re.compile(r"#define\s+(?P<define_name>" + prefix + r"[A-z0-9_]*)\s+(?P<value_expression>[A-z0-9_()+&-|<> ]*)")
+        define_regex = re.compile(r"#define\s+(?P<define_name>[A-z0-9_]*)\s+(?P<value_expression>[A-z0-9_()+&-|<> ]*)")
 
         for match in re.finditer(define_regex, constants_text):
 
@@ -43,6 +44,13 @@ class Parser():
 
         # why is this key being inserted????
         constants.pop("__builtins__")
+        delete = []
+        for c in constants.keys():
+            if not c.startswith(prefix):
+                delete.append(c)
+        for c in delete:
+            constants.pop(c)
+
         return constants
 
 
@@ -60,9 +68,11 @@ class FrontierEditor():
 
         self.app = QtWidgets.QApplication(sys.argv)
         self.mainwindow = uic.loadUi("forms/MainWindow.ui")
+        self.init_ui()
         self.connect_signals()
 
         self.root = ""
+        self.constants = dict()
 
         pass
 
@@ -71,6 +81,17 @@ class FrontierEditor():
 
         self.mainwindow.pushButton_addMon.clicked.connect(self.show_add_mon_window)
         self.mainwindow.actionOpen.triggered.connect(self.open_project)
+
+        pass
+
+
+    def init_ui(self):
+
+        #setEditable(true);// can set to false manually when using
+        #this->completer()->setCompletionMode(QCompleter::PopupCompletion);
+        #this->completer()->setFilterMode(Qt::MatchContains);
+
+        self.mainwindow.tabWidget.setEnabled(False)
 
         pass
 
@@ -87,6 +108,16 @@ class FrontierEditor():
 
         add_window = uic.loadUi("forms/AddFrontierMon.ui");
         add_window.setModal(True)
+
+        add_window.comboBox_species.setEditable(True)
+        add_window.comboBox_species.completer().setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+        add_window.comboBox_species.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+
+        #print(add_window.comboBox_species.completer().filterMode())
+        
+        add_window.comboBox_species.clear()
+        add_window.comboBox_species.addItems(self.constants["species"].values())
+
         add_window.exec()
 
         pass
@@ -100,6 +131,7 @@ class FrontierEditor():
         if project_dir:
             self.root = project_dir
             self.load_project()
+            self.mainwindow.tabWidget.setEnabled(True)
 
         pass
 
@@ -111,7 +143,7 @@ class FrontierEditor():
         parser = Parser()
         self.constants["species"] = parser.reverse_dict(parser.read_c_constants(self.root + "/include/constants/species.h", "SPECIES"))
 
-        #print(self.constants)
+        print(self.constants)
 
         pass
 
