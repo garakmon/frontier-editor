@@ -71,8 +71,11 @@ class FrontierEditor():
         self.init_ui()
         self.connect_signals()
 
+        self.parser = Parser()
+
         self.root = ""
         self.constants = dict()
+        self.frontier_mons = dict()
 
         pass
 
@@ -86,11 +89,7 @@ class FrontierEditor():
 
 
     def init_ui(self):
-
-        #setEditable(true);// can set to false manually when using
-        #this->completer()->setCompletionMode(QCompleter::PopupCompletion);
-        #this->completer()->setFilterMode(Qt::MatchContains);
-
+        '''disable ui until user opens a project'''
         self.mainwindow.tabWidget.setEnabled(False)
 
         pass
@@ -112,8 +111,6 @@ class FrontierEditor():
         add_window.comboBox_species.setEditable(True)
         add_window.comboBox_species.completer().setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
         add_window.comboBox_species.completer().setFilterMode(Qt.MatchFlag.MatchContains)
-
-        #print(add_window.comboBox_species.completer().filterMode())
         
         add_window.comboBox_species.clear()
         add_window.comboBox_species.addItems(self.constants["species"].values())
@@ -136,14 +133,64 @@ class FrontierEditor():
         pass
 
 
+    def load_frontier_battle_mons(self):
+
+        self.constants["frontier_mons"] = self.parser.reverse_dict(self.parser.read_c_constants(self.root + "/include/constants/battle_frontier_mons.h", "FRONTIER_MON_"))
+        
+        with open(self.root + "/src/data/battle_frontier/battle_frontier_mons.h", "r", encoding="utf-8") as f:
+            text = f.read()
+
+        frontier_mon_re = re.compile(r"\[(?P<mon_const>[A-Za-z0-9_]+)\][\s=\{\}]+.species.+(?P<species>SPECIES_[A-Za-z0-9_]+)"
+            + r".+\s+.moves.+(?P<move1>MOVE_[A-Za-z0-9_]+).+(?P<move2>MOVE_[A-Za-z0-9_]+).+(?P<move3>MOVE_[A-Za-z0-9_]+).+(?P<move4>MOVE_[A-Za-z0-9_]+)")
+
+        for match in re.finditer(frontier_mon_re, text):
+
+            bfmon_name = match.group("mon_const")
+            bfmon_species = match.group("species")
+            bfmon_moves = [match.group("move1"), match.group("move2"), match.group("move3"), match.group("move4")]
+
+            self.frontier_mons[bfmon_name] = {
+                "name": bfmon_name,
+                "species": bfmon_species,
+                "moves": bfmon_moves,
+            }
+
+        self.mainwindow.comboBox_species.setEditable(True)
+        self.mainwindow.comboBox_species.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.mainwindow.comboBox_species.completer().setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+        self.mainwindow.comboBox_species.completer().setFilterMode(Qt.MatchFlag.MatchContains)
+
+        self.mainwindow.comboBox_species.currentTextChanged.connect(self.display_frontier_mon)
+
+        self.mainwindow.comboBox_species.clear()
+        self.mainwindow.comboBox_species.addItems(self.frontier_mons.keys())
+
+        pass
+
+
+    def display_frontier_mon(self, monconst):
+
+        #print("display_frontier_mon", monconst)
+
+        monref = self.frontier_mons[monconst]
+
+        self.mainwindow.lineEdit_move1.setText(monref["moves"][0])
+        self.mainwindow.lineEdit_move2.setText(monref["moves"][1])
+        self.mainwindow.lineEdit_move3.setText(monref["moves"][2])
+        self.mainwindow.lineEdit_move4.setText(monref["moves"][3])
+
+        pass
+
+
     def load_project(self):
 
         self.constants = dict()
 
-        parser = Parser()
-        self.constants["species"] = parser.reverse_dict(parser.read_c_constants(self.root + "/include/constants/species.h", "SPECIES"))
+        self.constants["species"] = self.parser.reverse_dict(self.parser.read_c_constants(self.root + "/include/constants/species.h", "SPECIES"))
 
-        print(self.constants)
+        #print(self.constants)
+
+        self.load_frontier_battle_mons()
 
         pass
 
