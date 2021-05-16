@@ -140,20 +140,38 @@ class FrontierEditor():
         with open(self.root + "/src/data/battle_frontier/battle_frontier_mons.h", "r", encoding="utf-8") as f:
             text = f.read()
 
-        frontier_mon_re = re.compile(r"\[(?P<mon_const>[A-Za-z0-9_]+)\][\s=\{\}]+.species.+(?P<species>SPECIES_[A-Za-z0-9_]+)"
-            + r".+\s+.moves.+(?P<move1>MOVE_[A-Za-z0-9_]+).+(?P<move2>MOVE_[A-Za-z0-9_]+).+(?P<move3>MOVE_[A-Za-z0-9_]+).+(?P<move4>MOVE_[A-Za-z0-9_]+)")
+        #frontier_mon_re = re.compile(r"\[(?P<mon_const>[A-Za-z0-9_]+)\][\s=\{\}]+.species.+(?P<species>SPECIES_[A-Za-z0-9_]+)"
+        #    + r".+\s+.moves.+(?P<move1>MOVE_[A-Za-z0-9_]+).+(?P<move2>MOVE_[A-Za-z0-9_]+).+(?P<move3>MOVE_[A-Za-z0-9_]+).+(?P<move4>MOVE_[A-Za-z0-9_]+)")
+
+        frontier_mon_re = re.compile(r"\[(?P<mon_const>FRONTIER_MON[A-Za-z0-9_]+)\]\s*=\s*\{(?P<info>[^\[]+)")
+
+        fm_species_re = re.compile(r"species[\s=]+(?P<species>[A-Za-z0-9_]+)")
+        fm_moves_re = re.compile(r"moves[\s=\{]+(?P<move1>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move2>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move3>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move4>MOVE_[|A-Za-z0-9_]+)")
+        fm_item_re = re.compile(r"itemTableId[\s=]+(?P<item>[A-Za-z0-9_]+)")
+        fm_ev_re = re.compile(r"evSpread[\s=]+(?P<ev1>[|A-Za-z0-9_]+\b)[\s|]*(?P<ev2>[A-Za-z0-9_]+)?\b[\s|]*(?:(?P<ev3>[A-Za-z0-9_]+))?")
+        fm_nature_re = re.compile(r"nature[\s=]+(?P<nature>[|A-Za-z0-9_]+)")
 
         for match in re.finditer(frontier_mon_re, text):
 
             bfmon_name = match.group("mon_const")
-            bfmon_species = match.group("species")
-            bfmon_moves = [match.group("move1"), match.group("move2"), match.group("move3"), match.group("move4")]
+            bfmon_info = match.group("info")
+
+            bfmon_species = fm_species_re.findall(bfmon_info)[0]
+            bfmon_moves = list(fm_moves_re.findall(bfmon_info)[0])
+            bfmon_item = fm_item_re.findall(bfmon_info)[0]
+            bfmon_evs = list(fm_ev_re.findall(bfmon_info)[0])
+            bfmon_nature = fm_nature_re.findall(bfmon_info)[0]
 
             self.frontier_mons[bfmon_name] = {
                 "name": bfmon_name,
                 "species": bfmon_species,
                 "moves": bfmon_moves,
+                "item": bfmon_item,
+                "evs": bfmon_evs,
+                "nature": bfmon_nature
             }
+
+        print(self.frontier_mons)
 
         self.mainwindow.comboBox_species.setEditable(True)
         self.mainwindow.comboBox_species.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -178,6 +196,29 @@ class FrontierEditor():
         self.mainwindow.lineEdit_move2.setText(monref["moves"][1])
         self.mainwindow.lineEdit_move3.setText(monref["moves"][2])
         self.mainwindow.lineEdit_move4.setText(monref["moves"][3])
+
+        self.mainwindow.lineEdit_item.setText(monref["item"])
+        self.mainwindow.lineEdit_nature.setText(monref["nature"])
+
+        self.mainwindow.lineEdit_ev1.setText(monref["evs"][0])
+        self.mainwindow.lineEdit_ev2.setText(monref["evs"][1])
+        self.mainwindow.lineEdit_ev3.setText(monref["evs"][2])
+        
+        if monref["evs"][2]:
+            self.mainwindow.label_ev1.setText("170")
+            self.mainwindow.label_ev2.setText("170")
+            self.mainwindow.label_ev3.setText("170")
+
+        elif monref["evs"][1]:
+            self.mainwindow.label_ev1.setText("255")
+            self.mainwindow.label_ev2.setText("255")
+            self.mainwindow.label_ev3.setText("0")
+
+        else:
+            self.mainwindow.label_ev1.setText("255")
+            self.mainwindow.label_ev2.setText("0")
+            self.mainwindow.label_ev3.setText("0")
+            
 
         pass
 
