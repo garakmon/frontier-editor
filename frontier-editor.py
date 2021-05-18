@@ -8,6 +8,9 @@ from PyQt6.QtWidgets import QFileDialog, QCompleter
 
 
 class Parser():
+    '''
+    class used to parse project files
+    '''
 
     def __init__(self):
         pass
@@ -23,6 +26,8 @@ class Parser():
 
 
     def read_c_constants(self, filepath="", prefix=""):
+        ''' read C #define constants into a dict {label: value}
+        '''
 
         constants = {}
 
@@ -44,6 +49,9 @@ class Parser():
 
         # why is this key being inserted????
         constants.pop("__builtins__")
+
+        # remove constants that do not match the prefix
+        # must do this here because evaluating needs all constants in map
         delete = []
         for c in constants.keys():
             if not c.startswith(prefix):
@@ -63,8 +71,13 @@ class Parser():
 
 
 class FrontierEditor():
+    '''
+    main program class --- initializes the window and handles all inputs
+    '''
 
     def __init__(self):
+        ''' constructor
+        '''
 
         self.app = QtWidgets.QApplication(sys.argv)
         self.mainwindow = uic.loadUi("forms/MainWindow.ui")
@@ -81,6 +94,8 @@ class FrontierEditor():
 
 
     def connect_signals(self):
+        ''' setup event listeners for button presses, route to class functions
+        '''
 
         self.mainwindow.pushButton_addMon.clicked.connect(self.show_add_mon_window)
         self.mainwindow.actionOpen.triggered.connect(self.open_project)
@@ -89,7 +104,8 @@ class FrontierEditor():
 
 
     def init_ui(self):
-        '''disable ui until user opens a project'''
+        ''' disable ui until user opens a project
+        '''
         self.mainwindow.tabWidget.setEnabled(False)
 
         pass
@@ -104,6 +120,8 @@ class FrontierEditor():
 
 
     def show_add_mon_window(self):
+        ''' show the (modal) dialog window to add a new mon
+        '''
 
         add_window = uic.loadUi("forms/AddFrontierMon.ui");
         add_window.setModal(True)
@@ -117,10 +135,14 @@ class FrontierEditor():
 
         add_window.exec()
 
+        # TODO: keep values and insert into master dict
+
         pass
 
 
     def open_project(self):
+        ''' open a decomp project, initialize ui accordingly
+        '''
 
         dlg = QFileDialog()
         project_dir = dlg.getExistingDirectory()
@@ -134,23 +156,25 @@ class FrontierEditor():
 
 
     def load_frontier_battle_mons(self):
+        ''' load gBattleFrontierMons array into memory
+        '''
 
         self.constants["frontier_mons"] = self.parser.reverse_dict(self.parser.read_c_constants(self.root + "/include/constants/battle_frontier_mons.h", "FRONTIER_MON_"))
         
         with open(self.root + "/src/data/battle_frontier/battle_frontier_mons.h", "r", encoding="utf-8") as f:
             text = f.read()
 
-        #frontier_mon_re = re.compile(r"\[(?P<mon_const>[A-Za-z0-9_]+)\][\s=\{\}]+.species.+(?P<species>SPECIES_[A-Za-z0-9_]+)"
-        #    + r".+\s+.moves.+(?P<move1>MOVE_[A-Za-z0-9_]+).+(?P<move2>MOVE_[A-Za-z0-9_]+).+(?P<move3>MOVE_[A-Za-z0-9_]+).+(?P<move4>MOVE_[A-Za-z0-9_]+)")
-
+        # regular expression to match [FRONTIER_MON_SPECIES_NAME] = { <info> }
         frontier_mon_re = re.compile(r"\[(?P<mon_const>FRONTIER_MON[A-Za-z0-9_]+)\]\s*=\s*\{(?P<info>[^\[]+)")
 
+        # some regular expressions to match the various fields in the struct
         fm_species_re = re.compile(r"species[\s=]+(?P<species>[A-Za-z0-9_]+)")
         fm_moves_re = re.compile(r"moves[\s=\{]+(?P<move1>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move2>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move3>MOVE_[|A-Za-z0-9_]+)[\s,]+(?P<move4>MOVE_[|A-Za-z0-9_]+)")
         fm_item_re = re.compile(r"itemTableId[\s=]+(?P<item>[A-Za-z0-9_]+)")
         fm_ev_re = re.compile(r"evSpread[\s=]+(?P<ev1>[|A-Za-z0-9_]+\b)[\s|]*(?P<ev2>[A-Za-z0-9_]+)?\b[\s|]*(?:(?P<ev3>[A-Za-z0-9_]+))?")
         fm_nature_re = re.compile(r"nature[\s=]+(?P<nature>[|A-Za-z0-9_]+)")
 
+        # for each match, add the info into the table
         for match in re.finditer(frontier_mon_re, text):
 
             bfmon_name = match.group("mon_const")
@@ -171,8 +195,7 @@ class FrontierEditor():
                 "nature": bfmon_nature
             }
 
-        print(self.frontier_mons)
-
+        # populate the mon tab species combobox with all the frontier mons
         self.mainwindow.comboBox_species.setEditable(True)
         self.mainwindow.comboBox_species.setSizeAdjustPolicy(QtWidgets.QComboBox.SizeAdjustPolicy.AdjustToContents)
         self.mainwindow.comboBox_species.completer().setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
@@ -187,8 +210,9 @@ class FrontierEditor():
 
 
     def display_frontier_mon(self, monconst):
-
-        #print("display_frontier_mon", monconst)
+        ''' display the information (species, moves, evs, nature, item) for the specific mon
+            selected in the combobox
+        '''
 
         monref = self.frontier_mons[monconst]
 
@@ -218,8 +242,7 @@ class FrontierEditor():
             self.mainwindow.label_ev1.setText("255")
             self.mainwindow.label_ev2.setText("0")
             self.mainwindow.label_ev3.setText("0")
-            
-
+        
         pass
 
 
@@ -228,8 +251,6 @@ class FrontierEditor():
         self.constants = dict()
 
         self.constants["species"] = self.parser.reverse_dict(self.parser.read_c_constants(self.root + "/include/constants/species.h", "SPECIES"))
-
-        #print(self.constants)
 
         self.load_frontier_battle_mons()
 
